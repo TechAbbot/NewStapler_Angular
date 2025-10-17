@@ -1,0 +1,595 @@
+<div class="flex items-center mb-8 fixed top-6 right-1" *ngIf="formConfig?.stepsDetails?.length">
+  <!-- Step Indicator -->
+  <div *ngFor="let step of formConfig.stepsDetails; let i = index" class="flex items-center">
+    <div
+      class="w-10 h-10 rounded-full flex items-center justify-center border-2 font-semibold transition-all duration-300"
+      [class.bg-black]="i === selectedIndex" [class.text-white]="i === selectedIndex || i < selectedIndex"
+      [class.border-black]="i === selectedIndex" [class.bg-green-500]="i < selectedIndex"
+      [class.border-green-500]="i < selectedIndex" [class.border-gray-300]="i > selectedIndex"
+      [class.text-gray-400]="i > selectedIndex">
+      {{ i < selectedIndex ? "✓" : i + 1 }} </div>
+        <div *ngIf="i === selectedIndex" class="ml-3 font-medium transition-colors duration-300"
+          [class.text-black]="i === selectedIndex" [class.text-green-600]="i < selectedIndex"
+          [class.text-gray-400]="i > selectedIndex">
+          {{ step?.label }}
+        </div>
+        <div *ngIf="i < formConfig.stepsDetails.length - 1"
+          class="flex-1 h-1 bg-gray-200 mx-4 rounded-full transition-colors duration-300"
+          [class.bg-green-500]="i < selectedIndex" [class.bg-gray-300]="i >= selectedIndex"></div>
+    </div>
+  </div>
+
+
+  <!-- center portion -->
+  <div class="flex justify-center items-center min-h-96 bg-[#F7F7F8] py-10 overflow-y-auto py-[100px]"
+    *ngIf="formConfig?.stepsDetails?.length">
+    <div class="p-6 mt-2 min-w-[500px]" style="width: 70%;">
+
+      <!-- Step Form -->
+      <form *ngIf="formConfig?.stepsDetails?.length && stepForms[selectedIndex]" [formGroup]="stepForms[selectedIndex]"
+        class="space-y-6">
+        <ng-container *ngFor="let field of formConfig.stepsDetails[selectedIndex]?.fields || []">
+          <!-- Text Input -->
+          <div *ngIf="field.fieldType === 'text'" class="flex flex-col">
+            <label class="font-semibold mb-2 text-gray-700">{{
+              field.label
+              }}</label>
+            <input type="text" [formControlName]="field.controlName" [placeholder]="field.placeholder"
+              class="border border-gray-300 rounded-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              [class.border-red-500]="
+              isFieldInvalid(stepForms[selectedIndex], field.controlName)
+              " />
+            <div *ngIf="isFieldInvalid(stepForms[selectedIndex], field.controlName)" class="text-red-500 text-sm mt-1">
+              {{ getFieldError(stepForms[selectedIndex], field.controlName) }}
+            </div>
+          </div>
+
+          <!-- Number Input -->
+          <div *ngIf="field.fieldType === 'number'" class="flex flex-col">
+            <label class="font-semibold mb-2 text-gray-700">{{
+              field.label
+              }}</label>
+            <div *ngIf="field.description" class="text-sm text-gray-600 mb-3 bg-blue-50 p-3 rounded-sm">
+              {{ field.description }}
+            </div>
+            <input type="number" [formControlName]="field.controlName"
+              class="border border-gray-300 rounded-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              [class.border-red-500]="
+              isFieldInvalid(stepForms[selectedIndex], field.controlName)
+              " />
+            <div *ngIf="isFieldInvalid(stepForms[selectedIndex], field.controlName)" class="text-red-500 text-sm mt-1">
+              {{ getFieldError(stepForms[selectedIndex], field.controlName) }}
+            </div>
+          </div>
+          
+          <!-- Dropdown -->
+
+          <div class="grid grid-cols gap-6 w-full">
+            <div *ngIf="field.fieldType === 'dropdown'" class="flex flex-col">
+              <label class="font-semibold mb-2 text-gray-700">{{ field.label }}</label>
+          
+              <select [formControlName]="field.controlName" class="w-full border border-gray-300 rounded-sm px-4 py-3 
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 
+                       focus:border-transparent transition-all duration-200 bg-white"
+                [class.border-red-500]="isFieldInvalid(stepForms[selectedIndex], field.controlName)">
+                <option value="">Select {{ field.label }}</option>
+                <option *ngFor="let opt of field?.options || []" [value]="opt.value">
+                  {{ opt.key }}
+                </option>
+              </select>
+          
+              <div *ngIf="isFieldInvalid(stepForms[selectedIndex], field.controlName)" class="text-red-500 text-sm mt-1">
+                {{ getFieldError(stepForms[selectedIndex], field.controlName) }}
+              </div>
+            </div>
+          </div>
+
+          
+
+          <!-- Survey Table with Checkboxes -->
+          <div *ngIf="field.fieldType === 'surveyTable'" class="overflow-x-auto">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-4">
+              <!-- <label class="font-semibold text-lg text-gray-800">
+                {{ field.label }}
+              </label> -->
+              <h3 class="text-s font-medium text-gray-500 uppercase p-3 bg-[#F1F2F3] w-full"> {{ field.label }} </h3>
+              <div class="text-sm text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-full">
+                Selected:
+                {{
+                getSelectedSurveysCount(stepForms[selectedIndex], field.controlName)
+                }}
+                out of {{ field.rows?.length || 0 }} surveys
+              </div>
+            </div>
+
+            <!-- Table -->
+            <table class="table-auto border-collapse border border-gray-300 w-full rounded-sm overflow-hidden">
+              <thead>
+                <tr class="uppercase font-semibold">
+                  <th *ngFor="let col of field.columns"
+                    class="px-4 py-3 text-left font-semibold text-gray-500"
+                    [class.w-12]="col.type === 'checkbox'">
+                    {{ col.label }}
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody formArrayName="{{ field.controlName }}">
+                <tr *ngFor="let row of getPaginatedRows(field); let r = index" [formGroupName]="getRowIndex(r)"
+                  class="hover:bg-gray-50 transition-colors duration-150">
+                  <td *ngFor="let col of field.columns" class="px-4 py-3">
+                    <!-- Checkbox Column -->
+                    <div *ngIf="col.type === 'checkbox'" class="flex justify-center">
+                      <input type="checkbox" formControlName="{{ col.columnId }}"
+                        class="w-5 h-5 text-blue-600 bg-gray-100 rounded-lg focus:ring-blue-500 focus:ring-2" />
+                    </div>
+
+                    <!-- Text Columns -->
+                    <div *ngIf="col.type !== 'checkbox'" class="text-sm rounded-lg text-gray-700 whitespace-nowrap">
+                      {{ row[col.columnId] }}
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Pagination -->
+            <div class="flex items-center justify-center mt-4 gap-2 text-gray-700 select-none">
+              <button (click)="changePage(currentPage - 1, field)" [disabled]="currentPage === 1"
+                class="px-3 py-1 border rounded-lg hover:bg-gray-100 disabled:opacity-50">
+                Prev
+              </button>
+
+              <ng-container *ngFor="let page of [].constructor(getTotalPages(field)); let i = index">
+                <button (click)="changePage(i + 1, field)" class="px-3 py-1 border rounded-lg" [ngClass]="
+          currentPage === i + 1
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'hover:bg-gray-100'
+        ">
+                  {{ i + 1 }}
+                </button>
+              </ng-container>
+
+              <button (click)="changePage(currentPage + 1, field)" [disabled]="currentPage === getTotalPages(field)"
+                class="px-3 py-1 border rounded-lg hover:bg-gray-100 disabled:opacity-50">
+                Next
+              </button>
+            </div>
+          </div>
+
+
+          <!-- Criteria Selection -->
+          <div *ngIf="field.fieldType === 'criteriaSelection'" class="space-y-6">
+            <!-- label -->
+            <h3 class="font-semibold text-gray-700">{{ field.label }}</h3>
+
+            <!-- Description -->
+            <div class="w-full max-w-[1440px] mb-6">
+              <p class="text-sm font-medium text-gray-400">{{ field.description }}</p>
+            </div>
+
+            <!-- Available Criteria List + Right Panel -->
+            <div class="flex gap-6">
+              <!-- LEFT: Criteria List -->
+              <div class="flex flex-col gap-[7.2px] p-2">
+                <h3 class="text-s font-medium text-gray-500 uppercase p-3 bg-[#F1F2F3]">
+                  Available Criteria
+                </h3>
+
+                <div *ngFor="let crit of field.criteriaList"
+                  class="flex items-center justify-between rounded-md px-[14.4px] py-[7.2px] cursor-pointer hover:bg-gray-200 transition">
+                  <div class="flex items-center gap-[7.2px]">
+                    <input type="checkbox" [formControl]="
+                                getCriteriaControl(
+                                  stepForms[selectedIndex],
+                                  field.controlName,
+                                  crit.criteriaId,
+                                  'isSelected'
+                                )
+                              " (change)="
+                                onCriteriaToggle(
+                                  stepForms[selectedIndex],
+                                  field.controlName,
+                                  crit
+                                )
+                              "
+                      class="w-[21.6px] h-[21.6px] border border-gray-300 rounded-[3.6px] accent-[#0082C6] focus:ring-[#0082C6] focus:ring-2" />
+                    <span class="font-medium text-[#747884] tracking-wide">
+                      {{ crit.label }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- RIGHT: Selected Criteria Details -->
+              <div class="flex-1 p-1 h-auto">
+                <h3 class="text-s font-medium uppercase p-3 bg-[#F1F2F3] mb-4 text-gray-500">
+                  Selected Criteria Details
+                </h3>
+
+                <!-- Only loop once for all selected criteria -->
+                <div *ngFor="
+                            let selected of getSelectedCriteria(
+                              stepForms[selectedIndex],
+                              field.controlName
+                            )
+                          " class="p-6 border-b">
+                  <!-- Find the criteria config -->
+                  <ng-container *ngIf="getSelectedCriteriaItem(field, selected) as crit">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between border-gray-200 pb-3">
+                      <h4 class="font-semibold text-lg text-gray-800">
+                        {{ crit.subForm.label }}
+                      </h4>
+                      <!-- <span class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                        Total:
+                        {{
+                        getCriteriaTotal(
+                        stepForms[selectedIndex],
+                        field.controlName,
+                        crit.criteriaId
+                        )
+                        }}%
+                      </span> -->
+                      <button type="button" (click)="
+                                  addCriteriaRow(
+                                    stepForms[selectedIndex],
+                                    field.controlName,
+                                    crit.criteriaId,
+                                    crit.subForm.fields[0]
+                                  )
+                                "
+                        class="px-4 py-2 text-blue-500 text-sm font-medium transition duration-200 flex items-center space-x-2">
+                        <span>{{ crit.subForm.addButtonLabel }}</span>
+                      </button>
+                    </div>
+
+                    <!-- Rows -->
+                    <div formArrayName="{{ field.controlName }}">
+                      <div [formGroupName]="crit.criteriaId">
+                        <div formArrayName="rows" class="space-y-4">
+                          <div *ngFor="
+                                      let row of getCriteriaRows(
+                                        stepForms[selectedIndex],
+                                        field.controlName,
+                                        crit.criteriaId
+                                      )?.controls || [];
+                                      let r = index
+                                    " [formGroupName]="r" class="flex flex-wrap items-end gap-4 px-4">
+                            <!-- Dynamic Controls -->
+                            <ng-container *ngFor="let ctrl of crit.subForm.fields[0].controls">
+                              <!-- Dropdown -->
+                              <div *ngIf="ctrl.controlType === 'dropdown'" class="flex-1">
+                                <!-- <label class="block text-sm font-medium text-gray-700 mb-2">{{ ctrl.label }}</label> -->
+                                <select [formControlName]="ctrl.controlName"
+                                  class="w-full border border-gray-300 rounded-sm px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                  <option value="">Select {{ ctrl.label }}</option>
+                                  <option *ngFor="let opt of ctrl.options" [value]="opt.value">
+                                    {{ opt.key }}
+                                  </option>
+                                </select>
+                              </div>
+
+                              <!-- Number -->
+                              <div *ngIf="ctrl.controlType === 'number'" class="w-32">
+                                <!-- <label class="block text-sm font-medium text-gray-700 mb-2">{{ ctrl.label }}</label> -->
+                                <input type="number" [formControlName]="ctrl.controlName" [min]="ctrl.min"
+                                  [max]="ctrl.max"
+                                  class="w-full border border-gray-300 rounded-sm px-3 py-2 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" />
+                              </div>
+                            </ng-container>
+
+                            <!-- Delete Button -->
+                            <button type="button" (click)="
+                                        deleteCriteriaRow(
+                                          stepForms[selectedIndex],
+                                          field.controlName,
+                                          crit.criteriaId,
+                                          r
+                                        )
+                                      "
+                              class="px-3 py-2 bg-red-500 text-white rounded-sm hover:bg-red-600 text-xs font-medium transition duration-200">
+                              Delete
+                            </button>
+                            <!-- [class.invisible]="
+                                        getCriteriaRows(
+                                          stepForms[selectedIndex],
+                                          field.controlName,
+                                          crit.criteriaId
+                                        )?.length <= 1
+                                      " -->
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Add Row Button and Total -->
+                    <div class="flex justify-right pt-4">
+
+                      <span class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                        {{ crit.subForm.totalField.label }}:
+                        {{
+                        getCriteriaTotal(
+                        stepForms[selectedIndex],
+                        field.controlName,
+                        crit.criteriaId
+                        )
+                        }}%
+                      </span>
+                      <div *ngIf="
+                                    getCriteriaTotal(
+                                      stepForms[selectedIndex],
+                                      field.controlName,
+                                      crit.criteriaId
+                                    ) > crit.subForm.totalField.maxTotal
+                                  " class="text-red-500 text-sm mt-1">
+                        Total cannot exceed
+                        {{ crit.subForm.totalField.maxTotal }}%
+                      </div>
+                    </div>
+                  </ng-container>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- Impact Drivers -->
+          <div *ngIf="field.fieldType === 'impactDrivers'" class="flex flex-col items-center gap-5 w-full">
+
+            <!-- Drivers Form -->
+            <div class="w-full max-w-[1440px] flex flex-col gap-4" [formGroupName]="field.controlName">
+              <h3 class="font-semibold text-lg text-gray-800">{{ field.label }}</h3>
+
+              <!-- Description -->
+              <div class="w-full max-w-[1440px] mb-6">
+                <p class="text-sm">{{ field.description }}</p>
+              </div>
+
+              <div class="flex">
+                <div class="uppercase flex-1 pl-8">Drivers</div>
+                <div class="uppercase w-40">Avg.</div>
+              </div>
+
+              <!-- Driver Rows -->
+              <div class="space-y-4">
+                <div *ngFor="let driver of field.drivers"
+                  class="flex items-center justify-between p-2 bg-[#F1F2F3] top-margin-5">
+                  <div
+                    class="w-8 h-8 mr-2 flex items-center justify-center rounded-md bg-blue-500 text-white font-bold text-lg">
+                    {{ driver.label.charAt(0).toUpperCase() }}
+                  </div>
+                  <label class="font-medium text-gray-700 flex-1">{{ driver.label }}</label>
+
+                  <div class="w-32">
+                    <input type="number" [formControlName]="driver.driverId" [min]="driver.validation?.min"
+                      [max]="driver.validation?.max"
+                      class="w-full border border-gray-300 rounded-sm px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white"
+                      [class.border-red-500]="
+              isFieldInvalid(
+                getFormGroup(stepForms[selectedIndex], field.controlName),
+                driver.driverId
+              )
+            " />
+
+                    <div *ngIf="
+              isFieldInvalid(
+                getFormGroup(stepForms[selectedIndex], field.controlName),
+                driver.driverId
+              )
+            " class="text-red-500 text-xs mt-1 text-right">
+                      {{
+                      getFieldError(
+                      getFormGroup(stepForms[selectedIndex], field.controlName),
+                      driver.driverId
+                      )
+                      }}
+                    </div>
+                  </div>
+
+                  <span class="w-16 text-right font-semibold text-gray-600">%</span>
+                </div>
+              </div>
+
+              <!-- Overall Score -->
+              <div class="mt-6 p-4 bg-blue-50 rounded-sm border border-blue-200 flex justify-between items-center">
+                <span class="font-semibold text-blue-800">Overall Score</span>
+                <span class="text-2xl font-bold text-blue-800">
+                  {{
+                  getFormGroup(stepForms[selectedIndex], field.controlName)?.get('overallScore')?.value
+                  }}%
+                </span>
+              </div>
+
+              <!-- Total Validation -->
+              <div class="mt-4 text-right">
+                <div class="text-sm text-gray-600">
+                  Total:
+                  {{
+                  getImpactDriversTotal(stepForms[selectedIndex], field.controlName)
+                  }}%
+                </div>
+                <div *ngIf="
+          getImpactDriversTotal(stepForms[selectedIndex], field.controlName) !== 100
+        " class="text-red-500 text-sm mt-1">
+                  Total must be exactly 100%
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- eNPS Settings -->
+          <div *ngIf="field.fieldType === 'enpsSettings'"
+            class="flex flex-col items-center gap-5 w-full h-[600px] top-[100px] left-0">
+            <div class="p-6 w-full max-w-[1440px] flex flex-col gap-6" [formGroupName]="field.controlName">
+              <!-- Title -->
+              <h3 class="font-semibold text-lg text-gray-800">
+                {{ field.label }}
+              </h3>
+
+              <!-- Dynamic ENPS Percentage -->
+              <div class="flex flex-col items-center justify-center mt-4 mb-6">
+                <div class="flex items-center space-x-3">
+                  <!-- Circular Icon (Clock or custom icon) -->
+                  <div
+                    class="w-10 h-10 flex items-center justify-center rounded-full bg-blue-50 border border-blue-300">
+                    <i class="fas fa-gauge text-blue-600 text-xl"></i>
+                  </div>
+
+                  <!-- Dynamic Percentage -->
+                  <span class="text-4xl font-extrabold text-gray-800">
+                    {{ getEnpsTotal(stepForms[selectedIndex], field.controlName) }}%
+                  </span>
+                </div>
+              </div>
+
+              <!-- Category Rows -->
+              <div class="space-y-4">
+                <div *ngFor="let category of field.categories"
+                  class="flex items-center justify-between p-3 bg-gray-100 rounded-md shadow-sm">
+                  <!-- Left: Color + Label -->
+                  <div class="flex items-center space-x-3 flex-1">
+                    <div class="w-4 h-4 rounded-sm" [ngStyle]="{ 'background-color': category.color }"></div>
+                    <label class="font-semibold text-gray-700 text-base">
+                      {{ category.label }}
+                    </label>
+                  </div>
+
+                  <!-- Right: Input -->
+                  <div class="flex items-center space-x-2">
+                    <input type="number" [formControlName]="category.categoryId" [min]="category.validation?.min"
+                      [max]="category.validation?.max"
+                      class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                      [class.border-red-500]="
+              isFieldInvalid(
+                getFormGroup(stepForms[selectedIndex], field.controlName),
+                category.categoryId
+              )
+            " />
+                    <span class="font-semibold text-gray-600">%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Total Section -->
+              <div class="flex flex-col items-center mt-6">
+                <div class="flex justify-between w-full max-w-md">
+                  <span class="font-semibold text-gray-800">Total</span>
+                  <span class="text-xl font-bold text-gray-800">
+                    {{ getEnpsTotal(stepForms[selectedIndex], field.controlName) }}%
+                  </span>
+                </div>
+                <div *ngIf="
+          getEnpsTotal(stepForms[selectedIndex], field.controlName) !== 100
+        " class="text-red-500 text-sm mt-2">
+                  Total must be exactly 100%
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
+          <!-- Comments (Driver-wise comments only) -->
+          <div *ngIf="field.fieldType === 'comments'" class="flex flex-col p-6 gap-4 overflow-hidden"
+            [formGroupName]="field.controlName">
+
+            <!-- Section Label -->
+            <h3 class="font-semibold text-lg text-gray-800 w-full">
+              {{ field.label }}
+            </h3>
+            <!-- Description -->
+            <div class="w-full">
+              <p class="text-sm font-medium text-gray-400">{{ field.description }}</p>
+            </div>
+            <div class="flex">
+              <h3 class="text-gray-500 uppercase p-3 bg-[#F1F2F3] w-1/3">
+                Available Criteria
+              </h3>
+              <h3 class="text-gray-500 uppercase p-3 bg-[#F1F2F3] w-2/3 ml-10">
+                comment
+              </h3>
+            </div>
+            <!-- Split Layout -->
+            <div class="flex flex-1 overflow-hidden gap-6">
+              <!-- Left Column: Driver Labels -->
+              <div class="w-1/3 overflow-y-auto ">
+                <ul class="">
+                  <li *ngFor="let driver of field.drivers" (click)="selectedDriver = driver.driverId"
+                    class="mt-1 cursor-pointer px-4 py-3 hover:bg-blue-100 transition-colors duration-150" [ngClass]="{
+            'bg-blue-100 font-semibold text-blue-800':
+              selectedDriver === driver.driverId
+          }">
+                    {{ driver.label }}
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Right Column: Driver Textareas -->
+              <div class="flex-1 overflow-y-auto">
+                <div *ngFor="let driver of field.drivers" class="w-full"
+                  [ngClass]="{ hidden: selectedDriver !== driver.driverId }">
+                  <!-- <label class="font-medium text-gray-700 block mb-2">
+                    {{ driver.label }}
+                  </label> -->
+
+                  <textarea [formControlName]="driver.driverId" [placeholder]="'Enter comments for ' + driver.label"
+                    rows="10"
+                    class="w-full border border-gray-300 rounded-sm px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"></textarea>
+
+                  <div *ngIf="
+            isFieldInvalid(
+              getFormGroup(stepForms[selectedIndex], field.controlName),
+              driver.driverId
+            )
+          " class="text-red-500 text-sm mt-1">
+                    {{
+                    getFieldError(
+                    getFormGroup(stepForms[selectedIndex], field.controlName),
+                    driver.driverId
+                    )
+                    }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </ng-container>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Navigation Buttons -->
+  <div *ngIf="formConfig?.stepsDetails?.length && stepForms[selectedIndex]"
+    class="flex justify-between mt-8 pt-6 border-t border-gray-200 stepper-container fixed bottom-0 right-0 left-0 bg-white p-6">
+    <div>
+      <button *ngIf="selectedIndex !== 0 && formConfig.stepsDetails[selectedIndex]?.showBackButton" (click)="prevStep()"
+        class="px-6 py-3 bg-gray-200 rounded-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-gray-700 transition-colors duration-200">
+        Back
+      </button>
+    </div>
+    <div>
+      <button *ngIf="selectedIndex === 0" (click)="cancel()"
+        class="px-6 py-3 fixed left-0 ml-3  bg-gray-200 rounded-sm hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-gray-700 transition-colors duration-200">
+        Cancel
+      </button>
+    </div>
+    <div class="flex space-x-3">
+      <button *ngIf="formConfig.stepsDetails[selectedIndex]?.showSkipButton" (click)="nextStep()"
+        class="px-6 py-3 bg-gray-500 text-white rounded-sm hover:bg-gray-600 font-medium transition-colors duration-200">
+        Skip
+      </button>
+      <button *ngIf="selectedIndex < stepForms.length - 1" (click)="nextStep()"
+        class="px-6 py-3 bg-blue-500 text-white rounded-sm hover:bg-blue-600 font-medium transition-colors duration-200">
+        Next
+      </button>
+      <button *ngIf="selectedIndex === stepForms.length - 1" (click)="submit()"
+        class="px-6 py-3 bg-green-500 text-white rounded-sm hover:bg-green-600 font-medium transition-colors duration-200">
+        Finish
+      </button>
+    </div>
+  </div>
